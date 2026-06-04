@@ -6,7 +6,7 @@ Notes for keeping `odysseus-omnibus` current.
 | Thing | File | How to bump |
 |---|---|---|
 | Odysseus app | `.github/workflows/build.yml` (`DEFAULT_UPSTREAM_REF`) | change ref, or *Run workflow* with a ref; weekly run otherwise tracks `main` |
-| SearXNG | `image/Dockerfile` (`SEARXNG_REF`) | change the commit/tag — **verify it boots first** (below) |
+| SearXNG | `image/Dockerfile` (`SEARXNG_REF`) | change the commit/tag - **verify it boots first** (below) |
 | ntfy | `image/Dockerfile` (`FROM …/ntfy:vX.Y.Z`) | bump the tag |
 | chromadb | `image/Dockerfile` (`pip install chromadb`) | unpinned; pin if a release breaks the client |
 
@@ -38,7 +38,7 @@ docker logs omni 2>&1 | grep -i "MemoryVectorStore ready"
 docker rm -f omni && docker volume rm omni-test && docker rmi odysseus-omnibus:test
 ```
 A bad **SearXNG** ref shows up as the `searxng` program flapping in
-`supervisorctl status` and search returning nothing — that's why it's pinned and
+`supervisorctl status` and search returning nothing - that's why it's pinned and
 tested before shipping.
 
 ## If upstream changes its Dockerfile
@@ -49,13 +49,13 @@ replicates the tail of upstream's entrypoint) accordingly.
 
 ## Architecture
 Images are **multi-arch (amd64 + arm64)**. The workflow builds each arch on a
-native GitHub-hosted runner (`ubuntu-latest` / `ubuntu-24.04-arm`) — no QEMU —
+native GitHub-hosted runner (`ubuntu-latest` / `ubuntu-24.04-arm`) - no QEMU -
 then a `merge` job stitches the manifest list with `docker buildx imagetools`.
 The arm64 runner is free only in **public** repos; if you make the repo private,
 drop the arm64 matrix entry (or pay for arm runners).
 
 ## Troubleshooting a running container
-- `docker exec <c> supervisorctl -c /etc/supervisor/supervisord.conf status` — per-service state.
-- `docker logs <c>` — all services' output is streamed here.
+- `docker exec <c> supervisorctl -c /etc/supervisor/supervisord.conf status` - per-service state.
+- `docker logs <c>` - all services' output is streamed here.
 - To use an external service instead of a bundled one, set its `EMBED_*=false`
   and the matching `CHROMADB_HOST` / `SEARXNG_INSTANCE` / `NTFY_BASE_URL`.

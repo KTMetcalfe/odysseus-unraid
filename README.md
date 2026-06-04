@@ -46,6 +46,24 @@ Each disabled service simply isn't started; the app talks to your endpoint
 instead. The app also degrades gracefully if a service is unreachable (memory /
 search features go quiet, the app keeps running).
 
+## GPU
+
+You almost certainly **don't** need to give this container a GPU. Odysseus is a
+front end that sends requests to a model server, so the GPU belongs to whatever
+runs the model:
+
+- **Recommended:** run Ollama / vLLM as its own container with the GPU, and
+  point **LLM Host** here at it. This container stays CPU-only - nothing to do.
+  (The bundled chromadb / searxng / ntfy and the local embedding fallback are
+  all CPU.)
+- **Only if** you use Odysseus's built-in model serving (it can install/run
+  vLLM or llama.cpp inside this container) do you attach a GPU here. On Unraid:
+  install the **Nvidia Driver** plugin (a one-time, host-level step needed for
+  any GPU container), then add Extra Parameters `--runtime=nvidia` and env
+  `NVIDIA_VISIBLE_DEVICES=<your GPU UUID>` + `NVIDIA_DRIVER_CAPABILITIES=all`.
+  (AMD/ROCm instead uses `--device=/dev/dri`.) GPU params are not in the
+  template by default, since they'd break installs on machines without one.
+
 ## How it's built
 
 `image/Dockerfile` is self-contained and multi-stage:

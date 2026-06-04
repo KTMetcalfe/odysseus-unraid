@@ -97,7 +97,7 @@ weekly + on changes.
 - SearXNG: bump `SEARXNG_REF` in `image/Dockerfile` after verifying the new tag
   boots clean.
 
-See `MAINTAINING.md` for upkeep — version bumps, local build + smoke test, and
+See `MAINTAINING.md` for upkeep - version bumps, local build + smoke test, and
 troubleshooting.
 
 ## Credit & license

@@ -1,0 +1,12 @@
+# Odysseus omnibus SearXNG settings template. The entrypoint substitutes the
+# secret_key placeholder on first boot. JSON output MUST be enabled - Odysseus
+# uses the JSON search API.
+use_default_settings: true
+
+server:
+  secret_key: "__SEARXNG_SECRET__"
+
+search:
+  formats:
+    - html
+    - json

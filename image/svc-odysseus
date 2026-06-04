@@ -1,0 +1,21 @@
+#!/bin/sh
+# Launch the Odysseus app. Replicates the env setup from the upstream
+# entrypoint's tail (CUDA detection, FlashInfer sampler off, PATH for
+# pip --user CLIs) then execs uvicorn. Run as the app user via gosu by
+# supervisord.
+set -e
+cd /app
+
+for cu in \
+    /app/.local/lib/python*/site-packages/nvidia/cu13 \
+    /app/.local/lib/python*/site-packages/nvidia/cu12 \
+    /app/.local/lib/python*/site-packages/nvidia/cuda_nvcc; do
+    if [ -x "$cu/bin/nvcc" ]; then
+        export CUDA_HOME="$cu"
+        break
+    fi
+done
+export VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
+export PATH="/app/.local/bin:$PATH"
+
+exec uvicorn app:app --host 0.0.0.0 --port 7000

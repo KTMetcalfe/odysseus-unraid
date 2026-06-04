@@ -1,0 +1,129 @@
+name: build
+
+# Builds the all-in-one odysseus-omnibus image (app + chromadb + searxng + ntfy)
+# and pushes a multi-arch (amd64 + arm64) manifest to GHCR. Each arch builds on
+# a native GitHub-hosted runner (no QEMU), then a merge job stitches the
+# manifest list. Self-contained: the Dockerfile builds the upstream app itself
+# (pinned via UPSTREAM_REF).
+#
+# NOTE: the arm64 runner (ubuntu-24.04-arm) is free only in PUBLIC repos.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "Upstream Odysseus git ref (branch, tag, or SHA) to build"
+        required: false
+        default: main
+  schedule:
+    - cron: "0 4 * * 1" # weekly — pick up app + base-image patches
+  push:
+    branches: [main]
+    paths:
+      - "image/**"
+      - ".github/workflows/build.yml"
+
+env:
+  IMAGE: ghcr.io/ktmetcalfe/odysseus-omnibus
+  DEFAULT_UPSTREAM_REF: main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Prepare platform pair
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v5
+
+      - name: Resolve upstream ref
+        id: ref
+        env:
+          # Via env (not inline ${{ }}) so the dispatch input can't inject shell.
+          INPUT_REF: ${{ github.event.inputs.upstream_ref }}
+          DEFAULT_REF: ${{ env.DEFAULT_UPSTREAM_REF }}
+        run: echo "value=${INPUT_REF:-$DEFAULT_REF}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: image
+          file: image/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            UPSTREAM_REF=${{ steps.ref.outputs.value }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/KTMetcalfe/odysseus-unraid
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create -t "${IMAGE}:latest" \
+            $(printf "${IMAGE}@sha256:%s " *)
+        env:
+          IMAGE: ${{ env.IMAGE }}
+
+      - name: Inspect
+        run: docker buildx imagetools inspect "${IMAGE}:latest"
+        env:
+          IMAGE: ${{ env.IMAGE }}

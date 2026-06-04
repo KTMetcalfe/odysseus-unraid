@@ -1,0 +1,6 @@
+#!/bin/sh
+# Embedded ChromaDB server. Data persists in the app data volume so memory
+# survives container recreates. Bound to loopback - only the app talks to it.
+set -e
+mkdir -p /app/data/chroma
+exec chroma run --path /app/data/chroma --host 127.0.0.1 --port 8000

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Embedded ntfy (notifications). Bound to loopback on 8091 - the app reaches it
+# at http://127.0.0.1:8091. Cache persists in the app data volume.
+set -e
+mkdir -p /app/data/ntfy
+export NTFY_LISTEN_HTTP="127.0.0.1:8091"
+export NTFY_BASE_URL="${NTFY_BASE_URL:-http://127.0.0.1:8091}"
+export NTFY_CACHE_FILE="/app/data/ntfy/cache.db"
+exec ntfy serve

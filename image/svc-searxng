@@ -1,0 +1,8 @@
+#!/bin/sh
+# Embedded SearXNG (web search), JSON output enabled. Run in-place from the
+# cloned source tree via granian (WSGI). Bound to loopback - only the app
+# talks to it. Settings + secret are prepared by the entrypoint.
+set -e
+export SEARXNG_SETTINGS_PATH="${SEARXNG_SETTINGS_PATH:-/app/data/searxng/settings.yml}"
+export PYTHONPATH="/usr/local/searxng-src${PYTHONPATH:+:$PYTHONPATH}"
+exec granian --interface wsgi --host 127.0.0.1 --port 8080 searx.webapp:app

@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>odysseus-omnibus</Name>
+  <Repository>ghcr.io/ktmetcalfe/odysseus-omnibus:latest</Repository>
+  <Registry>https://github.com/KTMetcalfe/odysseus-unraid/pkgs/container/odysseus-omnibus</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://forums.unraid.net/topic/REPLACE-support-odysseus/</Support>
+  <Project>https://github.com/pewdiepie-archdaemon/odysseus</Project>
+  <Overview>Odysseus, all in one container - PewDiePie's self-hosted AI workspace (chat, autonomous agents, tools, deep research, email, image generation, notes). This "omnibus" image bundles everything: the app + ChromaDB (memory) + SearXNG (web search) + ntfy (notifications). One container, one click, no extra wiring.&#13;&#10;&#13;&#10;LLM: Odysseus does not ship a model. Point "LLM Host" at your Ollama / vLLM / llama.cpp endpoint. The default host.docker.internal reaches services on the Unraid host (e.g. an Ollama on 11434).&#13;&#10;&#13;&#10;FIRST LOGIN: leave Admin Password blank and a generated one is printed to this container's log (search it for "password"), or set your own below. Change it in Settings after logging in.&#13;&#10;&#13;&#10;ADVANCED: each bundled service can be turned off (Embed ChromaDB/SearXNG/ntfy = false) and pointed at an external container instead - so you are never locked into the bundle.</Overview>
+  <Category>Productivity: Tools: Network:Other</Category>
+  <WebUI>http://[IP]:[PORT:7000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/KTMetcalfe/odysseus-unraid/main/odysseus-omnibus.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/KTMetcalfe/odysseus-unraid/main/icons/odysseus.png</Icon>
+  <ExtraParams>--add-host=host.docker.internal:host-gateway</ExtraParams>
+  <PostArgs/>
+  <DonateText/>
+  <DonateLink/>
+  <Description>All-in-one Odysseus AI workspace (app + chromadb + searxng + ntfy in one container). Bring your own LLM endpoint.</Description>
+
+  <Config Name="WebUI Port" Target="7000" Default="7000" Mode="tcp" Description="Odysseus web UI" Type="Port" Display="always" Required="true" Mask="false">7000</Config>
+
+  <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/odysseus-omnibus/data" Mode="rw" Description="All persistent data: database, memory (chroma), search config, ntfy cache, uploads, SSH keys." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/odysseus-omnibus/data</Config>
+  <Config Name="HuggingFace Cache" Target="/app/.cache/huggingface" Default="/mnt/user/appdata/odysseus-omnibus/hf-cache" Mode="rw" Description="Downloaded models / embeddings - can grow to many GB. Put on a fast pool (e.g. /mnt/cache/...) for quick boots; ownership is repaired here on start." Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/odysseus-omnibus/hf-cache</Config>
+  <Config Name="Logs" Target="/app/logs" Default="/mnt/user/appdata/odysseus-omnibus/logs" Mode="rw" Description="Application logs." Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/odysseus-omnibus/logs</Config>
+
+  <Config Name="LLM Host" Target="LLM_HOST" Default="host.docker.internal" Mode="" Description="Hostname of your Ollama / vLLM / llama.cpp server. host.docker.internal = the Unraid host. Use an IP for a remote server." Type="Variable" Display="always" Required="true" Mask="false">host.docker.internal</Config>
+  <Config Name="Admin Password" Target="ODYSSEUS_ADMIN_PASSWORD" Default="" Mode="" Description="Initial admin password. Leave blank to have one generated and printed to the container log on first boot." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="Optional - use OpenAI / OpenRouter-compatible API models." Type="Variable" Display="always" Required="false" Mask="true"/>
+
+  <Config Name="Auth Enabled" Target="AUTH_ENABLED" Default="true" Mode="" Description="Require login. Keep true unless behind your own auth proxy." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID the services run as. 99 = Unraid 'nobody'." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID the services run as. 100 = Unraid 'users'." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+
+  <Config Name="Embed ChromaDB" Target="EMBED_CHROMA" Default="true" Mode="" Description="Run ChromaDB inside this container. Set false to use an external ChromaDB - then set CHROMADB_HOST/PORT." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Embed SearXNG" Target="EMBED_SEARXNG" Default="true" Mode="" Description="Run SearXNG web search inside this container. Set false to use an external one - then set SearXNG Instance." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Embed ntfy" Target="EMBED_NTFY" Default="true" Mode="" Description="Run ntfy notifications inside this container. Set false to use an external one - then set ntfy Base URL." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+
+  <Config Name="External ChromaDB Host" Target="CHROMADB_HOST" Default="" Mode="" Description="Only when Embed ChromaDB = false: host of your external ChromaDB." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="External SearXNG Instance" Target="SEARXNG_INSTANCE" Default="" Mode="" Description="Only when Embed SearXNG = false: URL of your external, JSON-enabled SearXNG." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="External ntfy Base URL" Target="NTFY_BASE_URL" Default="" Mode="" Description="Only when Embed ntfy = false: URL of your external ntfy server." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>

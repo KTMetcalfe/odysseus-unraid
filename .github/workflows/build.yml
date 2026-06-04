@@ -73,6 +73,11 @@ jobs:
           context: image
           file: image/Dockerfile
           platforms: ${{ matrix.platform }}
+          # No provenance/SBOM attestations: they add "unknown/unknown" entries
+          # to the manifest list on GHCR. Harmless, but ugly. Set true to keep
+          # supply-chain provenance.
+          provenance: false
+          sbom: false
           build-args: |
             UPSTREAM_REF=${{ steps.ref.outputs.value }}
           labels: |

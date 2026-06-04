@@ -48,21 +48,30 @@ search features go quiet, the app keeps running).
 
 ## GPU
 
-You almost certainly **don't** need to give this container a GPU. Odysseus is a
-front end that sends requests to a model server, so the GPU belongs to whatever
-runs the model:
+Odysseus runs fine CPU-only, but it has two GPU-aware features, so you may want
+to expose your NVIDIA GPU to the container:
 
-- **Recommended:** run Ollama / vLLM as its own container with the GPU, and
-  point **LLM Host** here at it. This container stays CPU-only - nothing to do.
-  (The bundled chromadb / searxng / ntfy and the local embedding fallback are
-  all CPU.)
-- **Only if** you use Odysseus's built-in model serving (it can install/run
-  vLLM or llama.cpp inside this container) do you attach a GPU here. On Unraid:
-  install the **Nvidia Driver** plugin (a one-time, host-level step needed for
-  any GPU container), then add Extra Parameters `--runtime=nvidia` and env
-  `NVIDIA_VISIBLE_DEVICES=<your GPU UUID>` + `NVIDIA_DRIVER_CAPABILITIES=all`.
-  (AMD/ROCm instead uses `--device=/dev/dri`.) GPU params are not in the
-  template by default, since they'd break installs on machines without one.
+- **Hardware scanning.** Odysseus inspects the hardware it can see to give
+  hardware-aware model recommendations. Without GPU passthrough it only sees the
+  CPU and RAM, so its suggestions assume no GPU - even if a separate Ollama is
+  doing the actual inference.
+- **Built-in model serving.** Its Cookbook can install and run vLLM or
+  llama.cpp *inside* this container, which needs the GPU to run models.
+
+(If you point **LLM Host** at a separate Ollama/vLLM container that owns the
+GPU, inference already happens there; passing a GPU here is then only for the
+hardware scan, and is optional.)
+
+To expose an NVIDIA GPU on Unraid:
+1. Install the **Nvidia Driver** plugin from Community Apps (one-time,
+   host-level; needed for any GPU container).
+2. On this container, add **Extra Parameters** `--gpus=all` (or the
+   Unraid-native `--runtime=nvidia`) and env vars
+   `NVIDIA_VISIBLE_DEVICES=all` (or a specific GPU UUID) and
+   `NVIDIA_DRIVER_CAPABILITIES=all`.
+
+(AMD/ROCm instead uses `--device=/dev/dri`.) These aren't in the template by
+default, since they'd break installs on boxes without a GPU or the driver.
 
 ## How it's built
 

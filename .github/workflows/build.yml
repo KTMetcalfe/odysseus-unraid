@@ -1,20 +1,36 @@
 name: build
 
 # Builds the all-in-one odysseus-omnibus image (app + chromadb + searxng + ntfy)
-# and pushes a multi-arch (amd64 + arm64) manifest to GHCR. Each arch builds on
-# a native GitHub-hosted runner (no QEMU), then a merge job stitches the
-# manifest list. Self-contained: the Dockerfile builds the upstream app itself
-# (pinned via UPSTREAM_REF).
+# and pushes multi-arch (amd64 + arm64) manifests to GHCR, in TWO channels:
+#
+#   :latest  <- fork branch `main`   (you sync from upstream manually, reviewed)
+#   :edge    <- fork branch `track`  (auto-mirrors upstream main, bleeding edge)
+#
+# Both channels build from the FORK we control (ghcr ODYSSEUS_REPO below), not
+# upstream directly - so a bad upstream change can't break us until we let it
+# (see MAINTAINING.md). The companion service pins (ntfy/searxng/chroma) live in
+# image/Dockerfile and are bumped there; this workflow only drives the per-
+# channel Odysseus source ref.
+#
+# Each arch builds on a native GitHub-hosted runner (no QEMU); a per-channel
+# merge job then stitches the manifest list.
 #
 # NOTE: the arm64 runner (ubuntu-24.04-arm) is free only in PUBLIC repos.
+# NOTE: :latest needs the fork's `main` branch and :edge needs its `track`
+#       branch to exist - builds for a missing branch fail (fail-fast: false
+#       keeps the other channel/arch going).
 
 on:
   workflow_dispatch:
     inputs:
-      upstream_ref:
-        description: "Upstream Odysseus git ref (branch, tag, or SHA) to build"
+      latest_ref:
+        description: "Override the :latest source ref on the fork (blank = main)"
         required: false
-        default: main
+        default: ""
+      edge_ref:
+        description: "Override the :edge source ref on the fork (blank = track)"
+        required: false
+        default: ""
   schedule:
     - cron: "0 4 * * 1" # weekly - pick up app + base-image patches
   push:
@@ -25,7 +41,9 @@ on:
 
 env:
   IMAGE: ghcr.io/ktmetcalfe/odysseus-omnibus
-  DEFAULT_UPSTREAM_REF: main
+  # The fork we build from. Upstream (pewdiepie-archdaemon/odysseus) flows into
+  # this via the fork's own sync, never straight into our image.
+  ODYSSEUS_REPO: https://github.com/KTMetcalfe/odysseus.git
 
 permissions:
   contents: read
@@ -36,27 +54,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: linux/amd64
+        channel:
+          - tag: latest
+            ref: main
+          - tag: edge
+            ref: track
+        platform:
+          - name: linux/amd64
             runner: ubuntu-latest
-          - platform: linux/arm64
+          - name: linux/arm64
             runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.platform.runner }}
     steps:
       - name: Prepare platform pair
         env:
-          PLATFORM: ${{ matrix.platform }}
+          PLATFORM: ${{ matrix.platform.name }}
         run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v5
 
-      - name: Resolve upstream ref
+      - name: Resolve channel ref
         id: ref
         env:
-          # Via env (not inline ${{ }}) so the dispatch input can't inject shell.
-          INPUT_REF: ${{ github.event.inputs.upstream_ref }}
-          DEFAULT_REF: ${{ env.DEFAULT_UPSTREAM_REF }}
-        run: echo "value=${INPUT_REF:-$DEFAULT_REF}" >> "$GITHUB_OUTPUT"
+          # Via env (not inline ${{ }}) so dispatch inputs can't inject shell.
+          DEFAULT_REF: ${{ matrix.channel.ref }}
+          TAG: ${{ matrix.channel.tag }}
+          LATEST_OVERRIDE: ${{ github.event.inputs.latest_ref }}
+          EDGE_OVERRIDE: ${{ github.event.inputs.edge_ref }}
+        run: |
+          override=""
+          [ "$TAG" = latest ] && override="$LATEST_OVERRIDE"
+          [ "$TAG" = edge ] && override="$EDGE_OVERRIDE"
+          echo "value=${override:-$DEFAULT_REF}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -72,19 +101,20 @@ jobs:
         with:
           context: image
           file: image/Dockerfile
-          platforms: ${{ matrix.platform }}
+          platforms: ${{ matrix.platform.name }}
           # No provenance/SBOM attestations: they add "unknown/unknown" entries
           # to the manifest list on GHCR. Harmless, but ugly. Set true to keep
           # supply-chain provenance.
           provenance: false
           sbom: false
           build-args: |
-            UPSTREAM_REF=${{ steps.ref.outputs.value }}
+            ODYSSEUS_REPO=${{ env.ODYSSEUS_REPO }}
+            ODYSSEUS_REF=${{ steps.ref.outputs.value }}
           labels: |
             org.opencontainers.image.source=https://github.com/KTMetcalfe/odysseus-unraid
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+          cache-from: type=gha,scope=${{ matrix.channel.tag }}-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.channel.tag }}-${{ env.PLATFORM_PAIR }}
 
       - name: Export digest
         env:
@@ -96,7 +126,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ matrix.channel.tag }}-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -104,12 +134,17 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     needs: build
+    if: ${{ !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [latest, edge]
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
           path: /tmp/digests
-          pattern: digests-*
+          pattern: digests-${{ matrix.channel }}-*
           merge-multiple: true
 
       - uses: docker/setup-buildx-action@v3
@@ -122,13 +157,16 @@ jobs:
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          TAG: ${{ matrix.channel }}
         run: |
-          docker buildx imagetools create -t "${IMAGE}:latest" \
+          # If this channel's build failed (e.g. fork branch missing), no
+          # digests were uploaded - skip rather than fail the whole run.
+          if [ -z "$(ls -A 2>/dev/null)" ]; then
+            echo "No digests for :$TAG - skipping (did the fork branch build?)."
+            exit 0
+          fi
+          docker buildx imagetools create -t "${IMAGE}:${TAG}" \
             $(printf "${IMAGE}@sha256:%s " *)
-        env:
-          IMAGE: ${{ env.IMAGE }}
-
-      - name: Inspect
-        run: docker buildx imagetools inspect "${IMAGE}:latest"
-        env:
-          IMAGE: ${{ env.IMAGE }}
+          docker buildx imagetools inspect "${IMAGE}:${TAG}"

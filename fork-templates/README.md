@@ -19,6 +19,13 @@ stay clean mirrors of upstream:
 run from the default branch. Keeping the workflow there (not on `main`) lets
 `main` stay a pristine, one-click-syncable mirror of upstream.
 
+> **Gotcha - the "N commits behind ...:dev" banner is cosmetic.** GitHub's
+> ahead/behind banner compares against the *upstream parent's* default branch,
+> which is `dev` - a different line from `main`. It does not reflect `main` or
+> `track`, and nothing here builds from the default branch. To sync stable,
+> switch the fork's branch dropdown to **`main`** first, *then* hit *Sync fork*
+> (there it compares against upstream `main` and reads "up to date").
+
 ## `sync-track.yml`
 
 Force-mirrors the fork's `track` branch to upstream

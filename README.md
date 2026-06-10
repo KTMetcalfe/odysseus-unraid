@@ -111,6 +111,11 @@ smoke test, and troubleshooting.
 
 ## Credit & license
 
-Odysseus © its authors, MIT License - see the upstream repo. This is an
-independent community repackaging, not affiliated with or endorsed by the
-upstream project. App bugs → upstream; Unraid/packaging issues → here.
+Odysseus © its authors, **AGPL-3.0-or-later** (relicensed from MIT upstream in
+June 2026) - see the upstream repo. Bundled components keep their own licenses:
+SearXNG (AGPL-3.0), ntfy (Apache-2.0), ChromaDB (Apache-2.0). The image as a
+whole is therefore effectively AGPL-3.0: fine for self-hosting, but if you
+expose a *modified* build to others over a network, AGPL asks you to offer that
+source. This is an independent community repackaging, not affiliated with or
+endorsed by the upstream project. App bugs → upstream; Unraid/packaging issues
+→ here.

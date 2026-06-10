@@ -27,9 +27,11 @@ off `pewdiepie-archdaemon` straight.
    button copies `main`, so `:latest` can build immediately.
 2. Create a `track` branch on the fork (from `main`). Until it exists, the
    `:edge` build is skipped (its merge step no-ops; see `build.yml`).
-3. Auto-sync `track` from upstream `main`. A scheduled workflow living **in the
-   fork** can do this with its own built-in token (`gh repo sync ... --branch
-   track`) - no PAT needed. *(Workflow file: TODO - come back to this.)*
+3. Auto-sync `track` from upstream `main`. The workflow that does this lives in
+   the fork at `.github/workflows/sync-track.yml` - copy it from
+   `fork-templates/sync-track.yml` in this repo. It force-mirrors `track` to
+   upstream `main` daily using the fork's own built-in token (no PAT). After
+   installing, run it once from the Actions tab to populate `track`.
 4. To advance **stable**, sync the fork's `main` from upstream when you've
    reviewed the diff, then run the omnibus `build` workflow (or wait for the
    weekly run).

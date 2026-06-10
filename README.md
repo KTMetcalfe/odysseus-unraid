@@ -75,9 +75,13 @@ default, since they'd break installs on boxes without a GPU or the driver.
 
 ## How it's built
 
+The Odysseus app is built from a **fork we control**
+(`KTMetcalfe/odysseus`), not upstream directly - a buffer so upstream changes
+only reach the image once we've let them through (see `MAINTAINING.md`).
+
 `image/Dockerfile` is self-contained and multi-stage:
-1. **app** - builds the upstream Odysseus app exactly as upstream's Dockerfile
-   does (pinned via `UPSTREAM_REF`).
+1. **app** - builds the Odysseus app from the fork exactly as upstream's
+   Dockerfile does (source + ref via `ODYSSEUS_REPO` / `ODYSSEUS_REF`).
 2. **omnibus** - adds ChromaDB (`pip install chromadb`), a source-installed
    SearXNG (run via granian; it's not pip-installable as a wheel), and the ntfy
    binary, all supervised by **supervisord**. `image/entrypoint.sh` handles
@@ -85,20 +89,25 @@ default, since they'd break installs on boxes without a GPU or the driver.
    generation, then execs supervisord. Per-service output streams to
    `docker logs`.
 
-`.github/workflows/build.yml` builds and pushes
-`ghcr.io/ktmetcalfe/odysseus-omnibus:latest` (multi-arch: amd64 + arm64),
-weekly + on changes.
+`.github/workflows/build.yml` builds and pushes two multi-arch (amd64 + arm64)
+channels, weekly + on changes:
+
+| Tag | Built from | For |
+|---|---|---|
+| `ghcr.io/ktmetcalfe/odysseus-omnibus:latest` | fork `main` (you sync after review) | normal installs |
+| `ghcr.io/ktmetcalfe/odysseus-omnibus:edge` | fork `track` (auto-mirrors upstream) | early testing |
 
 ## Updating
 
-- Template points at `:latest`; update via Unraid's *Check for Updates*.
-- App version: bump `DEFAULT_UPSTREAM_REF` in the workflow (or dispatch with a
-  ref); the weekly run otherwise tracks `main`.
-- SearXNG: bump `SEARXNG_REF` in `image/Dockerfile` after verifying the new tag
-  boots clean.
+- Template points at `:latest`; update via Unraid's *Check for Updates*. Pin a
+  container to `:edge` to ride the auto-tracking channel instead.
+- App version (stable): sync the fork's `main` from upstream after reviewing,
+  then rebuild. The `:edge` channel tracks upstream automatically.
+- SearXNG / ntfy: bump `SEARXNG_REF` / `NTFY_VERSION` in the pins block at the
+  top of `image/Dockerfile` (verify SearXNG boots clean first).
 
-See `MAINTAINING.md` for upkeep - version bumps, local build + smoke test, and
-troubleshooting.
+See `MAINTAINING.md` for upkeep - the fork model, version bumps, local build +
+smoke test, and troubleshooting.
 
 ## Credit & license
 

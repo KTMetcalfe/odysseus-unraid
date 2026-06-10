@@ -1,8 +1,9 @@
 # odysseus-omnibus - all-in-one Odysseus appliance for Unraid.
 #
-# Self-contained: stage 1 builds the upstream Odysseus app (MIT,
-# pewdiepie-archdaemon/odysseus) exactly as upstream's own Dockerfile does;
-# the final stage bundles ChromaDB (vector memory) + SearXNG (web search, JSON
+# Self-contained: stage 1 builds the Odysseus app (MIT) from a fork we control
+# (ODYSSEUS_REPO, a fork of pewdiepie-archdaemon/odysseus) exactly as upstream's
+# own Dockerfile does; the final stage bundles ChromaDB (vector memory) +
+# SearXNG (web search, JSON
 # enabled) + ntfy (notifications), supervised by supervisord. One image, one
 # container - no inter-container wiring.
 #
@@ -11,21 +12,33 @@
 # instance via the same env vars Odysseus already uses - so you're never
 # locked in.
 
-ARG UPSTREAM_REF=main
-ARG SEARXNG_REF=7159b8aed
+# ===== Pinned versions - SINGLE place to bump (see MAINTAINING.md) ==========
+# The Odysseus app is built from a FORK we control, not upstream directly, so
+# upstream changes flow through a repo we can freeze/patch (see MAINTAINING).
+# ODYSSEUS_REF is the per-channel source branch on the fork: `main` -> :latest
+# (you sync manually after review), `track` -> :edge (auto-mirrors upstream).
+# The build.yml workflow overrides ODYSSEUS_REF per channel; the defaults here
+# are for local `docker build`. The companion pins below are the single source
+# of truth (CI does NOT override them) - bump them right here.
+ARG ODYSSEUS_REPO=https://github.com/KTMetcalfe/odysseus.git
+ARG ODYSSEUS_REF=main
+ARG NTFY_VERSION=v2.24.0
+ARG SEARXNG_REF=f3fab143be3069bbcdcec9169bcf6ee030437a61
+# ===========================================================================
 
 # --- ntfy: static Go binary, just copy it ---
-FROM docker.io/binwiederhier/ntfy:v2.23.0 AS ntfy
+FROM docker.io/binwiederhier/ntfy:${NTFY_VERSION} AS ntfy
 
 # --- stage 1: the Odysseus app (mirrors upstream Dockerfile) ---
 FROM python:3.12-slim AS app
-ARG UPSTREAM_REF
+ARG ODYSSEUS_REPO
+ARG ODYSSEUS_REF
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake curl git nodejs npm tmux openssh-client gosu \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-RUN git clone https://github.com/pewdiepie-archdaemon/odysseus.git /app \
-    && git checkout "${UPSTREAM_REF}" \
+RUN git clone "${ODYSSEUS_REPO}" /app \
+    && git checkout "${ODYSSEUS_REF}" \
     && rm -rf /app/.git
 RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p data logs services/cache/search

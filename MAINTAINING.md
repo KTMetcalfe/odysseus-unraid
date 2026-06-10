@@ -2,15 +2,58 @@
 
 Notes for keeping `odysseus-omnibus` current.
 
+## We build from a fork, not upstream directly
+The image builds the Odysseus app from a **fork we control**
+(`KTMetcalfe/odysseus`), not `pewdiepie-archdaemon/odysseus` directly. The fork
+is a buffer: upstream is a single-maintainer repo whose default branch is `dev`
+and which ships no releases/tags, so building straight off it means any bad
+commit lands in our image. Routing through the fork lets us freeze, revert, or
+patch before it reaches users - which is what makes auto-updating safe.
+
+Two branches on the fork feed two image channels:
+
+| Fork branch | Image tag | Updates | Who moves it |
+|---|---|---|---|
+| `main` | `:latest` | when you sync the fork after reviewing | **you, manually** |
+| `track` | `:edge` | auto-mirrors upstream `main` | a sync action in the fork |
+
+So the **stable** channel only advances when you deliberately sync the fork's
+`main` from upstream (your trust gate), while the **edge** channel auto-tracks
+upstream for testing what's coming. Both run through the fork; nothing builds
+off `pewdiepie-archdaemon` straight.
+
+### Fork setup (one-time)
+1. Fork `pewdiepie-archdaemon/odysseus` to `KTMetcalfe/odysseus`. The Fork
+   button copies `main`, so `:latest` can build immediately.
+2. Create a `track` branch on the fork (from `main`). Until it exists, the
+   `:edge` build is skipped (its merge step no-ops; see `build.yml`).
+3. Auto-sync `track` from upstream `main`. The workflow that does this lives in
+   the fork at `.github/workflows/sync-track.yml` - copy it from
+   `fork-templates/sync-track.yml` in this repo. It force-mirrors `track` to
+   upstream `main` daily using the fork's own built-in token (no PAT). After
+   installing, run it once from the Actions tab to populate `track`.
+4. To advance **stable**, sync the fork's `main` from upstream when you've
+   reviewed the diff, then run the omnibus `build` workflow (or wait for the
+   weekly run).
+
+> Order matters: create the fork (and `track`) **before** merging a change to
+> `odysseus-unraid`'s `main`, or the first CI build has nothing to clone.
+
 ## Pinned versions and where they live
 | Thing | File | How to bump |
 |---|---|---|
-| Odysseus app | `.github/workflows/build.yml` (`DEFAULT_UPSTREAM_REF`) | change ref, or *Run workflow* with a ref; weekly run otherwise tracks `main` |
-| SearXNG | `image/Dockerfile` (`SEARXNG_REF`) | change the commit/tag - **verify it boots first** (below) |
-| ntfy | `image/Dockerfile` (`FROM …/ntfy:vX.Y.Z`) | bump the tag |
+| Odysseus app (source) | `image/Dockerfile` (`ODYSSEUS_REPO`) + per-channel ref from `build.yml` | advance the fork branch (`main`/`track`); not pinned to a SHA here |
+| SearXNG | `image/Dockerfile` (`SEARXNG_REF`, top block) | change the commit/tag - **verify it boots first** (below) |
+| ntfy | `image/Dockerfile` (`NTFY_VERSION`, top block) | bump the tag |
 | chromadb | `image/Dockerfile` (`pip install chromadb`) | unpinned; pin if a release breaks the client |
 
-The weekly workflow rebuilds and also picks up base-image (Debian/python) patches.
+The companion pins (`NTFY_VERSION`, `SEARXNG_REF`, and the `ODYSSEUS_REPO`
+default) are grouped in one block at the top of `image/Dockerfile` - that block
+is the single source of truth. `build.yml` does **not** override them; it only
+sets the per-channel `ODYSSEUS_REF` (`main` for `:latest`, `track` for `:edge`).
+
+The weekly workflow rebuilds both channels and also picks up base-image
+(Debian/python) patches.
 
 ## Local build + smoke test (before pushing a change)
 ```sh
@@ -48,9 +91,12 @@ changes how the app starts, reconcile stage 1 (and `image/svc-odysseus`, which
 replicates the tail of upstream's entrypoint) accordingly.
 
 ## Architecture
-Images are **multi-arch (amd64 + arm64)**. The workflow builds each arch on a
-native GitHub-hosted runner (`ubuntu-latest` / `ubuntu-24.04-arm`) - no QEMU -
-then a `merge` job stitches the manifest list with `docker buildx imagetools`.
+Images are **multi-arch (amd64 + arm64)** and built in **two channels**
+(`:latest`, `:edge`). The `build` job is a `channel x platform` matrix: each
+arch builds on a native GitHub-hosted runner (`ubuntu-latest` /
+`ubuntu-24.04-arm`) - no QEMU - then a per-channel `merge` job stitches that
+channel's manifest list with `docker buildx imagetools`. `fail-fast: false`
+keeps one channel building if the other's fork branch is missing.
 The arm64 runner is free only in **public** repos; if you make the repo private,
 drop the arm64 matrix entry (or pay for arm runners).
 

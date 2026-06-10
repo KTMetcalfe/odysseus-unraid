@@ -1,0 +1,45 @@
+name: sync-track
+
+# Mirrors upstream pewdiepie-archdaemon/odysseus@main into THIS fork's `track`
+# branch, which feeds the odysseus-omnibus :edge image. Runs on the fork's own
+# built-in GITHUB_TOKEN - no PAT.
+#
+# `track` is a throwaway mirror: it is FORCE-updated to upstream main on every
+# run, so it can never diverge or conflict. Never commit to it directly - the
+# reviewed/stable line is this fork's `main`, which you advance manually.
+#
+# NOTE: this file is meant to live in the FORK (KTMetcalfe/odysseus) at
+# .github/workflows/sync-track.yml, not in odysseus-unraid.
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-track
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the track branch
+        uses: actions/checkout@v5
+        with:
+          ref: track
+          fetch-depth: 0
+          # Default GITHUB_TOKEN; needs only contents: write to push to track.
+          token: ${{ github.token }}
+
+      - name: Force track to match upstream main
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/pewdiepie-archdaemon/odysseus.git
+          git fetch --no-tags upstream main
+          # Make track exactly equal to upstream main (no merge, no drift).
+          git reset --hard upstream/main
+          git push --force origin HEAD:track

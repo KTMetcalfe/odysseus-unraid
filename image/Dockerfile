@@ -1,6 +1,6 @@
 # odysseus-omnibus - all-in-one Odysseus appliance for Unraid.
 #
-# Self-contained: stage 1 builds the Odysseus app (MIT) from a fork we control
+# Self-contained: stage 1 builds the Odysseus app (AGPL-3.0-or-later) from a fork we control
 # (ODYSSEUS_REPO, a fork of pewdiepie-archdaemon/odysseus) exactly as upstream's
 # own Dockerfile does; the final stage bundles ChromaDB (vector memory) +
 # SearXNG (web search, JSON
@@ -75,7 +75,7 @@ RUN chmod +x /usr/local/bin/svc-odysseus /usr/local/bin/svc-chroma \
 
 LABEL org.opencontainers.image.source="https://github.com/KTMetcalfe/odysseus-unraid"
 LABEL org.opencontainers.image.description="Odysseus all-in-one (app + chromadb + searxng + ntfy) for Unraid"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later AND Apache-2.0"
 
 EXPOSE 7000
 

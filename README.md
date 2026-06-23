@@ -94,15 +94,18 @@ channels, weekly + on changes:
 
 | Tag | Built from | For |
 |---|---|---|
-| `ghcr.io/ktmetcalfe/odysseus-omnibus:latest` | fork `main` (you sync after review) | normal installs |
-| `ghcr.io/ktmetcalfe/odysseus-omnibus:edge` | fork `track` (auto-mirrors upstream) | early testing |
+| `ghcr.io/ktmetcalfe/odysseus-omnibus:latest` | **fork** `main` (you Sync-fork after review) | normal installs |
+| `ghcr.io/ktmetcalfe/odysseus-omnibus:edge` | **upstream** `main` directly (no review) | early testing |
+
+Only `:latest` routes through the fork, which acts as a review buffer for the
+stable channel. `:edge` builds straight from upstream by design.
 
 ## Updating
 
 - Template points at `:latest`; update via Unraid's *Check for Updates*. Pin a
-  container to `:edge` to ride the auto-tracking channel instead.
-- App version (stable): sync the fork's `main` from upstream after reviewing,
-  then rebuild. The `:edge` channel tracks upstream automatically.
+  container to `:edge` to ride upstream directly instead.
+- App version (stable): *Sync fork* the fork's `main` from upstream after
+  reviewing, then rebuild. The `:edge` channel tracks upstream automatically.
 - SearXNG / ntfy: bump `SEARXNG_REF` / `NTFY_VERSION` in the pins block at the
   top of `image/Dockerfile` (verify SearXNG boots clean first).
 

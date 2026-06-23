@@ -1,24 +1,24 @@
 name: build
 
 # Builds the all-in-one odysseus-omnibus image (app + chromadb + searxng + ntfy)
-# and pushes multi-arch (amd64 + arm64) manifests to GHCR, in TWO channels:
+# and pushes multi-arch (amd64 + arm64) manifests to GHCR, in TWO channels with
+# different sources (set per-channel in the matrix below):
 #
-#   :latest  <- fork branch `main`   (you sync from upstream manually, reviewed)
-#   :edge    <- fork branch `track`  (auto-mirrors upstream main, bleeding edge)
+#   :latest  <- our FORK's `main` branch     (you Sync-fork from upstream after
+#                                              review; the fork is the buffer)
+#   :edge    <- upstream `main` directly      (bleeding edge, no review gate)
 #
-# Both channels build from the FORK we control (ghcr ODYSSEUS_REPO below), not
-# upstream directly - so a bad upstream change can't break us until we let it
-# (see MAINTAINING.md). The companion service pins (ntfy/searxng/chroma) live in
-# image/Dockerfile and are bumped there; this workflow only drives the per-
-# channel Odysseus source ref.
+# Only `:latest` routes through the fork - that's the channel that benefits from
+# a review buffer. `:edge` is the deliberately-unreviewed channel, so it builds
+# straight from upstream; no fork `track` branch or sync automation is involved.
+# The companion service pins (ntfy/searxng/chroma) live in image/Dockerfile and
+# are bumped there; this workflow only drives the per-channel Odysseus source.
 #
 # Each arch builds on a native GitHub-hosted runner (no QEMU); a per-channel
-# merge job then stitches the manifest list.
+# merge job then stitches the manifest list. fail-fast: false keeps one
+# channel/arch going if another fails.
 #
 # NOTE: the arm64 runner (ubuntu-24.04-arm) is free only in PUBLIC repos.
-# NOTE: :latest needs the fork's `main` branch and :edge needs its `track`
-#       branch to exist - builds for a missing branch fail (fail-fast: false
-#       keeps the other channel/arch going).
 
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ on:
         required: false
         default: ""
       edge_ref:
-        description: "Override the :edge source ref on the fork (blank = track)"
+        description: "Override the :edge source ref on upstream (blank = main)"
         required: false
         default: ""
   schedule:
@@ -41,9 +41,6 @@ on:
 
 env:
   IMAGE: ghcr.io/ktmetcalfe/odysseus-omnibus
-  # The fork we build from. Upstream (pewdiepie-archdaemon/odysseus) flows into
-  # this via the fork's own sync, never straight into our image.
-  ODYSSEUS_REPO: https://github.com/KTMetcalfe/odysseus.git
 
 permissions:
   contents: read
@@ -56,9 +53,11 @@ jobs:
       matrix:
         channel:
           - tag: latest
+            repo: https://github.com/KTMetcalfe/odysseus.git
             ref: main
           - tag: edge
-            ref: track
+            repo: https://github.com/pewdiepie-archdaemon/odysseus.git
+            ref: main
         platform:
           - name: linux/amd64
             runner: ubuntu-latest
@@ -108,7 +107,7 @@ jobs:
           provenance: false
           sbom: false
           build-args: |
-            ODYSSEUS_REPO=${{ env.ODYSSEUS_REPO }}
+            ODYSSEUS_REPO=${{ matrix.channel.repo }}
             ODYSSEUS_REF=${{ steps.ref.outputs.value }}
           labels: |
             org.opencontainers.image.source=https://github.com/KTMetcalfe/odysseus-unraid
@@ -161,10 +160,10 @@ jobs:
           IMAGE: ${{ env.IMAGE }}
           TAG: ${{ matrix.channel }}
         run: |
-          # If this channel's build failed (e.g. fork branch missing), no
+          # If this channel's build failed (e.g. source ref missing), no
           # digests were uploaded - skip rather than fail the whole run.
           if [ -z "$(ls -A 2>/dev/null)" ]; then
-            echo "No digests for :$TAG - skipping (did the fork branch build?)."
+            echo "No digests for :$TAG - skipping (did this channel's build succeed?)."
             exit 0
           fi
           docker buildx imagetools create -t "${IMAGE}:${TAG}" \

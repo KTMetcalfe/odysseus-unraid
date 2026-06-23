@@ -27,14 +27,17 @@ off `pewdiepie-archdaemon` straight.
    button copies `main`, so `:latest` can build immediately.
 2. Create a `track` branch on the fork (from `main`). Until it exists, the
    `:edge` build is skipped (its merge step no-ops; see `build.yml`).
-3. Auto-sync `track` from upstream `main`. The workflow that does this lives in
-   the fork at `.github/workflows/sync-track.yml` - copy it from
-   `fork-templates/sync-track.yml` in this repo. It force-mirrors `track` to
-   upstream `main` daily using the fork's own built-in token (no PAT). After
-   installing, run it once from the Actions tab to populate `track`.
-4. To advance **stable**, sync the fork's `main` from upstream when you've
-   reviewed the diff, then run the omnibus `build` workflow (or wait for the
-   weekly run).
+3. Add the auto-sync for `track` on a dedicated `automation` branch and make it
+   the fork's **default branch** (scheduled Actions only run from the default
+   branch, and this keeps `main` a pristine mirror). The workflow lives at
+   `.github/workflows/sync-track.yml` on `automation` - copy it from
+   `fork-templates/sync-track.yml` in this repo (see that folder's README for
+   the exact commands). It force-mirrors `track` to upstream `main` daily on the
+   fork's own built-in token (no PAT). Run it once from the Actions tab to
+   populate `track`.
+4. To advance **stable**, sync the fork's `main` from upstream (one-click
+   *Sync fork*, since `main` carries no extra commits) when you've reviewed the
+   diff, then run the omnibus `build` workflow (or wait for the weekly run).
 
 > Order matters: create the fork (and `track`) **before** merging a change to
 > `odysseus-unraid`'s `main`, or the first CI build has nothing to clone.

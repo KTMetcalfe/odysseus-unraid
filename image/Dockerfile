@@ -13,13 +13,11 @@
 # locked in.
 
 # ===== Pinned versions - SINGLE place to bump (see MAINTAINING.md) ==========
-# The Odysseus app is built from a FORK we control, not upstream directly, so
-# upstream changes flow through a repo we can freeze/patch (see MAINTAINING).
-# ODYSSEUS_REF is the per-channel source branch on the fork: `main` -> :latest
-# (you sync manually after review), `track` -> :edge (auto-mirrors upstream).
-# The build.yml workflow overrides ODYSSEUS_REF per channel; the defaults here
-# are for local `docker build`. The companion pins below are the single source
-# of truth (CI does NOT override them) - bump them right here.
+# ODYSSEUS_REPO/REF select the app source. build.yml overrides them per channel:
+# `:latest` <- fork KTMetcalfe/odysseus@main (a review buffer you Sync-fork),
+# `:edge`   <- upstream pewdiepie-archdaemon/odysseus@main (no review). The
+# defaults below (the fork) are for local `docker build`. The companion pins are
+# the single source of truth (CI does NOT override them) - bump them right here.
 ARG ODYSSEUS_REPO=https://github.com/KTMetcalfe/odysseus.git
 ARG ODYSSEUS_REF=main
 ARG NTFY_VERSION=v2.24.0

@@ -1,6 +1,6 @@
 # Odysseus for Unraid (all-in-one)
 
-An Unraid app for [PewDiePie's **Odysseus**](https://github.com/pewdiepie-archdaemon/odysseus) -
+An Unraid app for [PewDiePie's **Odysseus**](https://github.com/odysseus-dev/odysseus) -
 a self-hosted AI workspace (chat, autonomous agents, tools, deep research,
 email, image generation, notes). Privacy-first, local-first; a self-hosted
 alternative to hosted ChatGPT/Claude UIs and to tools like Open WebUI (formerly
@@ -94,7 +94,7 @@ channels, weekly + on changes:
 
 | Tag | Built from | For |
 |---|---|---|
-| `ghcr.io/ktmetcalfe/odysseus-omnibus:latest` | **fork** `main` (you Sync-fork after review) | normal installs |
+| `ghcr.io/ktmetcalfe/odysseus-omnibus:latest` | **fork** `main` (you advance it after review) | normal installs |
 | `ghcr.io/ktmetcalfe/odysseus-omnibus:edge` | **upstream** `main` directly (no review) | early testing |
 
 Only `:latest` routes through the fork, which acts as a review buffer for the
@@ -104,7 +104,7 @@ stable channel. `:edge` builds straight from upstream by design.
 
 - Template points at `:latest`; update via Unraid's *Check for Updates*. Pin a
   container to `:edge` to ride upstream directly instead.
-- App version (stable): *Sync fork* the fork's `main` from upstream after
+- App version (stable): advance the fork's `main` to upstream `main` after
   reviewing, then rebuild. The `:edge` channel tracks upstream automatically.
 - SearXNG / ntfy: bump `SEARXNG_REF` / `NTFY_VERSION` in the pins block at the
   top of `image/Dockerfile` (verify SearXNG boots clean first).

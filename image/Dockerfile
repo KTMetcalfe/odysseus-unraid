@@ -1,7 +1,7 @@
 # odysseus-omnibus - all-in-one Odysseus appliance for Unraid.
 #
 # Self-contained: stage 1 builds the Odysseus app (AGPL-3.0-or-later) from a fork we control
-# (ODYSSEUS_REPO, a fork of pewdiepie-archdaemon/odysseus) exactly as upstream's
+# (ODYSSEUS_REPO, a fork of odysseus-dev/odysseus) exactly as upstream's
 # own Dockerfile does; the final stage bundles ChromaDB (vector memory) +
 # SearXNG (web search, JSON
 # enabled) + ntfy (notifications), supervised by supervisord. One image, one
@@ -14,8 +14,8 @@
 
 # ===== Pinned versions - SINGLE place to bump (see MAINTAINING.md) ==========
 # ODYSSEUS_REPO/REF select the app source. build.yml overrides them per channel:
-# `:latest` <- fork KTMetcalfe/odysseus@main (a review buffer you Sync-fork),
-# `:edge`   <- upstream pewdiepie-archdaemon/odysseus@main (no review). The
+# `:latest` <- fork KTMetcalfe/odysseus@main (a review buffer you advance by push),
+# `:edge`   <- upstream odysseus-dev/odysseus@main (no review). The
 # defaults below (the fork) are for local `docker build`. The companion pins are
 # the single source of truth (CI does NOT override them) - bump them right here.
 ARG ODYSSEUS_REPO=https://github.com/KTMetcalfe/odysseus.git

@@ -4,7 +4,7 @@ name: build
 # and pushes multi-arch (amd64 + arm64) manifests to GHCR, in TWO channels with
 # different sources (set per-channel in the matrix below):
 #
-#   :latest  <- our FORK's `main` branch     (you Sync-fork from upstream after
+#   :latest  <- our FORK's `main` branch     (you push upstream main to it after
 #                                              review; the fork is the buffer)
 #   :edge    <- upstream `main` directly      (bleeding edge, no review gate)
 #
@@ -56,7 +56,7 @@ jobs:
             repo: https://github.com/KTMetcalfe/odysseus.git
             ref: main
           - tag: edge
-            repo: https://github.com/pewdiepie-archdaemon/odysseus.git
+            repo: https://github.com/odysseus-dev/odysseus.git
             ref: main
         platform:
           - name: linux/amd64

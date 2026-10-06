@@ -8,8 +8,8 @@ The image ships in two channels with **different sources** (set per-channel in
 
 | Image tag | Source | Updates | Who moves it |
 |---|---|---|---|
-| `:latest` | **fork** `KTMetcalfe/odysseus@main` | when you Sync-fork after reviewing | **you, manually** |
-| `:edge` | **upstream** `pewdiepie-archdaemon/odysseus@main` | every build (no review) | upstream |
+| `:latest` | **fork** `KTMetcalfe/odysseus@main` | when you push upstream `main` to it after reviewing | **you, manually** |
+| `:edge` | **upstream** `odysseus-dev/odysseus@main` | every build (no review) | upstream |
 
 Only `:latest` routes through the fork. The fork is a **buffer** for the stable
 channel: upstream is a single-maintainer repo whose default branch is `dev` and
@@ -23,12 +23,25 @@ from pushing the workflow files upstream ships, so that auto-sync wasn't viable
 without a PAT - and edge gains nothing from the fork anyway.)
 
 ### Fork setup (one-time)
-1. Fork `pewdiepie-archdaemon/odysseus` to `KTMetcalfe/odysseus`. The Fork
+1. Fork `odysseus-dev/odysseus` to `KTMetcalfe/odysseus`. The Fork
    button copies `main`, which is all `:latest` needs. Keep `main` as the fork's
    default branch.
-2. To advance **stable**, Sync-fork the fork's `main` from upstream (one-click,
-   since `main` carries no extra commits) when you've reviewed the diff, then run
-   the omnibus `build` workflow (or wait for the weekly run).
+2. To advance **stable**, push upstream `main` onto the fork's `main` when
+   you've reviewed the diff, then run the omnibus `build` workflow (or wait for
+   the weekly run). `main` carries no commits of ours, so this is always a
+   straight move:
+   ```sh
+   git fetch https://github.com/odysseus-dev/odysseus.git main
+   git push --force-with-lease=main:<current fork main sha> \
+     git@github.com:KTMetcalfe/odysseus.git FETCH_HEAD:refs/heads/main
+   ```
+   **Don't use GitHub's "Sync fork" button.** Upstream was renamed
+   (`pewdiepie-archdaemon` -> `odysseus-dev`) and rewrote its history on
+   2026-09-10; GitHub now records the fork's parent as `arcahyadi/odysseus`, so
+   the button syncs from the wrong repo. The pre-rewrite `main` is kept on the
+   fork as `backup/main-pre-history-rewrite`.
+3. GitHub disables scheduled workflows after 60 days without a push to this
+   repo. If the weekly build stops, `gh workflow enable build.yml`.
 
 No `track` branch, `automation` branch, or sync workflow is needed.
 
@@ -38,7 +51,7 @@ No `track` branch, `automation` branch, or sync workflow is needed.
 ## Pinned versions and where they live
 | Thing | File | How to bump |
 |---|---|---|
-| Odysseus app (source) | per-channel `repo`/`ref` in `build.yml` | `:latest` advances when you Sync-fork; `:edge` tracks upstream `main` automatically |
+| Odysseus app (source) | per-channel `repo`/`ref` in `build.yml` | `:latest` advances when you push upstream `main` to the fork; `:edge` tracks upstream `main` automatically |
 | SearXNG | `image/Dockerfile` (`SEARXNG_REF`, top block) | change the commit/tag - **verify it boots first** (below) |
 | ntfy | `image/Dockerfile` (`NTFY_VERSION`, top block) | bump the tag |
 | chromadb | `image/Dockerfile` (`pip install chromadb`) | unpinned; pin if a release breaks the client |

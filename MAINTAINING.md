@@ -35,11 +35,19 @@ without a PAT - and edge gains nothing from the fork anyway.)
    git push --force-with-lease=main:<current fork main sha> \
      git@github.com:KTMetcalfe/odysseus.git FETCH_HEAD:refs/heads/main
    ```
-   **Don't use GitHub's "Sync fork" button.** Upstream was renamed
-   (`pewdiepie-archdaemon` -> `odysseus-dev`) and rewrote its history on
-   2026-09-10; GitHub now records the fork's parent as `arcahyadi/odysseus`, so
-   the button syncs from the wrong repo. The pre-rewrite `main` is kept on the
-   fork as `backup/main-pre-history-rewrite`.
+   GitHub's "Sync fork" button (or `gh repo sync KTMetcalfe/odysseus -b main`)
+   does the same thing now that the fork's parent is `odysseus-dev/odysseus`.
+
+   History: upstream was renamed (`pewdiepie-archdaemon` -> `odysseus-dev`) and
+   rewrote its history on 2026-09-10, which left the original fork in the
+   `arcahyadi/odysseus` network. GitHub cannot re-parent a fork, and it only
+   accepts PRs from forks in the same network, so on 2026-10-07 the old fork was
+   renamed to `KTMetcalfe/odysseus-legacy` (it keeps the pre-rewrite
+   `backup/main-pre-history-rewrite`, `automation` and `track` branches) and a
+   fresh fork of `odysseus-dev/odysseus` took the `KTMetcalfe/odysseus` name.
+   Every URL in this repo is unchanged.
+4. Actions are disabled on the fork (Settings -> Actions). Images are built
+   here, and upstream's CI suite would otherwise run on every push to the fork.
 3. GitHub disables scheduled workflows after 60 days without a push to this
    repo. If the weekly build stops, `gh workflow enable build.yml`.
 

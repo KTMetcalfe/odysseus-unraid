@@ -24,11 +24,11 @@ on:
   workflow_dispatch:
     inputs:
       latest_ref:
-        description: "Override the :latest source ref on the fork (blank = main)"
+        description: "Override the :latest source on the fork: branch, tag or commit SHA (blank = main)"
         required: false
         default: ""
       edge_ref:
-        description: "Override the :edge source ref on upstream (blank = main)"
+        description: "Override the :edge source on upstream: branch, tag or commit SHA (blank = main)"
         required: false
         default: ""
   schedule:
@@ -77,6 +77,7 @@ jobs:
         env:
           # Via env (not inline ${{ }}) so dispatch inputs can't inject shell.
           DEFAULT_REF: ${{ matrix.channel.ref }}
+          REPO: ${{ matrix.channel.repo }}
           TAG: ${{ matrix.channel.tag }}
           LATEST_OVERRIDE: ${{ github.event.inputs.latest_ref }}
           EDGE_OVERRIDE: ${{ github.event.inputs.edge_ref }}
@@ -84,7 +85,26 @@ jobs:
           override=""
           [ "$TAG" = latest ] && override="$LATEST_OVERRIDE"
           [ "$TAG" = edge ] && override="$EDGE_OVERRIDE"
-          echo "value=${override:-$DEFAULT_REF}" >> "$GITHUB_OUTPUT"
+          ref="${override:-$DEFAULT_REF}"
+          # Build from the commit, never the branch name: the clone step's
+          # layer cache is keyed on ODYSSEUS_REF's *value*, so passing `main`
+          # reuses the cached clone and ships stale code while reporting
+          # success. A full SHA passes through; a branch or tag resolves to
+          # its current commit (annotated tags peel to the commit).
+          if printf '%s' "$ref" | grep -Eq '^[0-9a-f]{40}$'; then
+            sha="$ref"
+          else
+            sha=$(git ls-remote "$REPO" "refs/heads/$ref" "refs/tags/$ref" "refs/tags/$ref^{}" | awk \
+                  -v h="refs/heads/$ref" -v p="refs/tags/$ref^{}" -v t="refs/tags/$ref" \
+                  '$2==h {b=$1} $2==p {pt=$1} $2==t {tg=$1}
+                   END {print (b != "" ? b : (pt != "" ? pt : tg))}')
+          fi
+          if [ -z "$sha" ]; then
+            echo "::error::Could not resolve '$ref' in $REPO"
+            exit 1
+          fi
+          echo "Building :$TAG from $REPO $ref -> $sha"
+          echo "value=$sha" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -111,6 +131,7 @@ jobs:
             ODYSSEUS_REF=${{ steps.ref.outputs.value }}
           labels: |
             org.opencontainers.image.source=https://github.com/KTMetcalfe/odysseus-unraid
+            org.opencontainers.image.revision=${{ steps.ref.outputs.value }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.channel.tag }}-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ matrix.channel.tag }}-${{ env.PLATFORM_PAIR }}

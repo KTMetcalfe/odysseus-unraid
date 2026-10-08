@@ -8,13 +8,20 @@ The image ships in two channels with **different sources** (set per-channel in
 
 | Image tag | Source | Updates | Who moves it |
 |---|---|---|---|
-| `:latest` | **fork** `KTMetcalfe/odysseus@main` | when you push upstream `main` to it after reviewing | **you, manually** |
-| `:edge` | **upstream** `odysseus-dev/odysseus@main` | every build (no review) | upstream |
+| `:latest` | **fork** `KTMetcalfe/odysseus@main` | when you push upstream `dev` to it after reviewing | **you, manually** |
+| `:edge` | **upstream** `odysseus-dev/odysseus@dev` | every build (no review) | upstream |
 
 Only `:latest` routes through the fork. The fork is a **buffer** for the stable
 channel: upstream is a single-maintainer repo whose default branch is `dev` and
 which ships no releases/tags, so a bad commit could otherwise land straight in
 the stable image. Syncing the fork's `main` is your deliberate trust gate.
+
+**Both channels follow upstream `dev`, not upstream `main` (since 2026-10-07).**
+Upstream works on `dev` and only occasionally syncs `main` in one large batch
+(`main` sat at 2026-09-05 while `dev` moved 451 commits ahead), so `main` is not
+a release channel in any useful sense - it is just a stale snapshot of `dev`.
+The fork's `main` is therefore "upstream `dev` that we reviewed", plus any of
+our own commits still waiting in an upstream PR (rebased onto `dev`).
 
 `:edge` is the deliberately-unreviewed channel, so it builds **straight from
 upstream** - the fork buffer would add nothing there. (An earlier design mirrored
@@ -26,17 +33,19 @@ without a PAT - and edge gains nothing from the fork anyway.)
 1. Fork `odysseus-dev/odysseus` to `KTMetcalfe/odysseus`. The Fork
    button copies `main`, which is all `:latest` needs. Keep `main` as the fork's
    default branch.
-2. To advance **stable**, push upstream `main` onto the fork's `main` when
+2. To advance **stable**, push upstream `dev` onto the fork's `main` when
    you've reviewed the diff, then run the omnibus `build` workflow (or wait for
-   the weekly run). `main` carries no commits of ours, so this is always a
-   straight move:
+   the weekly run). When `main` carries no commits of ours, this is a straight
+   move:
    ```sh
-   git fetch https://github.com/odysseus-dev/odysseus.git main
+   git fetch https://github.com/odysseus-dev/odysseus.git dev
    git push --force-with-lease=main:<current fork main sha> \
      git@github.com:KTMetcalfe/odysseus.git FETCH_HEAD:refs/heads/main
    ```
-   GitHub's "Sync fork" button (or `gh repo sync KTMetcalfe/odysseus -b main`)
-   does the same thing now that the fork's parent is `odysseus-dev/odysseus`.
+   When it does carry ours (an open upstream PR we run early), rebase that
+   branch onto the new upstream `dev` and force-with-lease `main` to it instead.
+   **Do not use GitHub's "Sync fork" button** (or `gh repo sync`): it syncs
+   from upstream `main`, which would move the fork backwards.
 
    History: upstream was renamed (`pewdiepie-archdaemon` -> `odysseus-dev`) and
    rewrote its history on 2026-09-10, which left the original fork in the
@@ -59,7 +68,7 @@ No `track` branch, `automation` branch, or sync workflow is needed.
 ## Pinned versions and where they live
 | Thing | File | How to bump |
 |---|---|---|
-| Odysseus app (source) | per-channel `repo`/`ref` in `build.yml` | `:latest` advances when you push upstream `main` to the fork; `:edge` tracks upstream `main` automatically |
+| Odysseus app (source) | per-channel `repo`/`ref` in `build.yml` | `:latest` advances when you push upstream `dev` to the fork; `:edge` tracks upstream `dev` automatically |
 | SearXNG | `image/Dockerfile` (`SEARXNG_REF`, top block) | change the commit/tag - **verify it boots first** (below) |
 | ntfy | `image/Dockerfile` (`NTFY_VERSION`, top block) | bump the tag |
 | chromadb | `image/Dockerfile` (`pip install chromadb`) | unpinned; pin if a release breaks the client |

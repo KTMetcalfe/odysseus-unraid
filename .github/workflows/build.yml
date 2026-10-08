@@ -4,9 +4,9 @@ name: build
 # and pushes multi-arch (amd64 + arm64) manifests to GHCR, in TWO channels with
 # different sources (set per-channel in the matrix below):
 #
-#   :latest  <- our FORK's `main` branch     (you push upstream main to it after
+#   :latest  <- our FORK's `main` branch     (you push upstream dev to it after
 #                                              review; the fork is the buffer)
-#   :edge    <- upstream `main` directly      (bleeding edge, no review gate)
+#   :edge    <- upstream `dev` directly       (bleeding edge, no review gate)
 #
 # Only `:latest` routes through the fork - that's the channel that benefits from
 # a review buffer. `:edge` is the deliberately-unreviewed channel, so it builds
@@ -28,7 +28,7 @@ on:
         required: false
         default: ""
       edge_ref:
-        description: "Override the :edge source on upstream: branch, tag or commit SHA (blank = main)"
+        description: "Override the :edge source on upstream: branch, tag or commit SHA (blank = dev)"
         required: false
         default: ""
   schedule:
@@ -57,7 +57,7 @@ jobs:
             ref: main
           - tag: edge
             repo: https://github.com/odysseus-dev/odysseus.git
-            ref: main
+            ref: dev
         platform:
           - name: linux/amd64
             runner: ubuntu-latest

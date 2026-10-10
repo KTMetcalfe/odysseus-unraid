@@ -8,20 +8,30 @@ The image ships in two channels with **different sources** (set per-channel in
 
 | Image tag | Source | Updates | Who moves it |
 |---|---|---|---|
-| `:latest` | **fork** `KTMetcalfe/odysseus@main` | when you push upstream `dev` to it after reviewing | **you, manually** |
+| `:latest` | **fork** `KTMetcalfe/odysseus@dev-custom` | when you rebase it onto upstream `dev` after reviewing | **you, manually** |
 | `:edge` | **upstream** `odysseus-dev/odysseus@dev` | every build (no review) | upstream |
 
 Only `:latest` routes through the fork. The fork is a **buffer** for the stable
 channel: upstream is a single-maintainer repo whose default branch is `dev` and
 which ships no releases/tags, so a bad commit could otherwise land straight in
-the stable image. Syncing the fork's `main` is your deliberate trust gate.
+the stable image. Rebasing the fork's `dev-custom` is your deliberate trust gate.
 
 **Both channels follow upstream `dev`, not upstream `main` (since 2026-10-07).**
 Upstream works on `dev` and only occasionally syncs `main` in one large batch
 (`main` sat at 2026-09-05 while `dev` moved 451 commits ahead), so `main` is not
 a release channel in any useful sense - it is just a stale snapshot of `dev`.
-The fork's `main` is therefore "upstream `dev` that we reviewed", plus any of
-our own commits still waiting in an upstream PR (rebased onto `dev`).
+
+The fork has three long-lived branches (since 2026-10-10):
+
+| Fork branch | Contents | How it moves |
+|---|---|---|
+| `main` | exact copy of upstream `main` | Sync fork / `gh repo sync KTMetcalfe/odysseus -b main` |
+| `dev` | exact copy of upstream `dev` | `gh repo sync KTMetcalfe/odysseus -b dev` |
+| `dev-custom` | upstream `dev` + our own commits on top | rebased by hand, force-with-lease |
+
+`main` and `dev` never carry our commits, so syncing them is always a
+fast-forward. Our work lives only on `dev-custom` (what `:latest` builds) and on
+the feature branches that upstream PRs are opened from.
 
 `:edge` is the deliberately-unreviewed channel, so it builds **straight from
 upstream** - the fork buffer would add nothing there. (An earlier design mirrored
@@ -30,22 +40,23 @@ from pushing the workflow files upstream ships, so that auto-sync wasn't viable
 without a PAT - and edge gains nothing from the fork anyway.)
 
 ### Fork setup (one-time)
-1. Fork `odysseus-dev/odysseus` to `KTMetcalfe/odysseus`. The Fork
-   button copies `main`, which is all `:latest` needs. Keep `main` as the fork's
-   default branch.
-2. To advance **stable**, push upstream `dev` onto the fork's `main` when
-   you've reviewed the diff, then run the omnibus `build` workflow (or wait for
-   the weekly run). When `main` carries no commits of ours, this is a straight
-   move:
+1. Fork `odysseus-dev/odysseus` to `KTMetcalfe/odysseus` with all branches
+   (untick "Copy the main branch only"), then create `dev-custom` from `dev`.
+   Keep `main` as the fork's default branch.
+2. To advance **stable**, sync the fork's `dev`, review the new upstream
+   commits, rebase `dev-custom` onto it, then run the omnibus `build` workflow
+   (or wait for the weekly run):
    ```sh
-   git fetch https://github.com/odysseus-dev/odysseus.git dev
-   git push --force-with-lease=main:<current fork main sha> \
-     git@github.com:KTMetcalfe/odysseus.git FETCH_HEAD:refs/heads/main
+   gh repo sync KTMetcalfe/odysseus -b dev
+   git fetch origin
+   git switch dev-custom && git rebase origin/dev   # resolve, run tests
+   git push --force-with-lease=dev-custom:<old dev-custom sha> \
+     git@github.com:KTMetcalfe/odysseus.git dev-custom
    ```
-   When it does carry ours (an open upstream PR we run early), rebase that
-   branch onto the new upstream `dev` and force-with-lease `main` to it instead.
-   **Do not use GitHub's "Sync fork" button** (or `gh repo sync`): it syncs
-   from upstream `main`, which would move the fork backwards.
+   When upstream merges one of our PRs, the rebase normally drops those commits
+   by itself; if upstream squash-merged, drop them by hand (`git rebase -i`).
+   New custom work: build it on a feature branch off `dev` (that's what an
+   upstream PR is opened from), then cherry-pick or merge it onto `dev-custom`.
 
    History: upstream was renamed (`pewdiepie-archdaemon` -> `odysseus-dev`) and
    rewrote its history on 2026-09-10, which left the original fork in the
@@ -68,7 +79,7 @@ No `track` branch, `automation` branch, or sync workflow is needed.
 ## Pinned versions and where they live
 | Thing | File | How to bump |
 |---|---|---|
-| Odysseus app (source) | per-channel `repo`/`ref` in `build.yml` | `:latest` advances when you push upstream `dev` to the fork; `:edge` tracks upstream `dev` automatically |
+| Odysseus app (source) | per-channel `repo`/`ref` in `build.yml` | `:latest` advances when you rebase `dev-custom` onto upstream `dev`; `:edge` tracks upstream `dev` automatically |
 | SearXNG | `image/Dockerfile` (`SEARXNG_REF`, top block) | change the commit/tag - **verify it boots first** (below) |
 | ntfy | `image/Dockerfile` (`NTFY_VERSION`, top block) | bump the tag |
 | chromadb | `image/Dockerfile` (`pip install chromadb`) | unpinned; pin if a release breaks the client |
